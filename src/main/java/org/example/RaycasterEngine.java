@@ -2,208 +2,305 @@ package org.example;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 
-public class RaycasterEngine extends JPanel implements ActionListener {
-    private final int WINDOW_WIDTH = 1024;
-    private final int WINDOW_HEIGHT = 512;
+public class RaycasterEngine extends JPanel implements KeyListener {
+    //-----------------------------MAP----------------------------------------------
+    private final int mapX = 8;    // map width
+    private final int mapY = 8;    // map height
+    private final int mapS = 64;   // map cube size
+    private final int[] map =      // the map array. Edit to change level but keep the outer walls
+            {
+                    1, 1, 1, 1, 1, 1, 1, 1,
+                    1, 0, 1, 0, 0, 0, 0, 1,
+                    1, 0, 1, 0, 0, 0, 0, 1,
+                    1, 0, 1, 0, 0, 0, 0, 1,
+                    1, 0, 0, 0, 0, 0, 0, 1,
+                    1, 0, 0, 0, 0, 1, 0, 1,
+                    1, 0, 0, 0, 0, 0, 0, 1,
+                    1, 1, 1, 1, 1, 1, 1, 1,
+            };
 
-    int mapX = 8, mapY = 8, mapS = 64, mp, mx, my;
-    int map[] = {
-            1, 1, 1, 1, 1, 1, 1, 1,
-            1, 0, 0, 0, 0, 0, 0, 1,
-            1, 0, 0, 0, 0, 0, 0, 1,
-            1, 0, 0, 0, 0, 0, 0, 1,
-            1, 0, 0, 0, 0, 0, 0, 1,
-            1, 0, 0, 0, 0, 0, 0, 1,
-            1, 0, 0, 0, 0, 0, 0, 1,
-            1, 1, 1, 1, 1, 1, 1, 1,
-    };
-
-    private final float PI = 3.1415926525F;
-    private boolean[] keysPressed = new boolean[256]; // Array to track keys being pressed
-
-
-    private float PLAYER_SIZE = 15;
-    private float playerX = WINDOW_WIDTH / 4 - PLAYER_SIZE / 2;
-    private float playerDeltaX;
-    private float playerY = WINDOW_HEIGHT / 2 - PLAYER_SIZE / 2;
-    private float playerDeltaY;
-    private float playerAngle;
-
-    private int rays;
-    private float raysAngle;
-    private float raysY;
-    private float raysX;
-    private float dof; // depth of field
-    private float yOffset;
-    private float xOffset;
+    //------------------------PLAYER------------------------------------------------
+    private float px, py, pdx, pdy, pa;
 
     public RaycasterEngine() {
-        setPreferredSize(new Dimension(WINDOW_WIDTH, WINDOW_HEIGHT));
-        setBackground(Color.GRAY);
+        addKeyListener(this);
         setFocusable(true);
-        requestFocus();
-        addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                keysPressed[e.getKeyCode()] = true; // Set the corresponding key to true when pressed
-            }
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-                keysPressed[e.getKeyCode()] = false; // Set the corresponding key to false when released
-            }
-        });
-
-        // Create and start the movement thread
-        Thread movementThread = new Thread(() -> {
-            while (true) {
-                movePlayer();
-                try {
-                    Thread.sleep(10); // Adjust the sleep time as needed
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-        movementThread.start();
+        setPreferredSize(new Dimension(1024, 510));
+        init();
     }
 
-    private void movePlayer() {
-        // Check for pressed keys and update player position accordingly
-        if (keysPressed['A']) { // 'A' key for moving left
-            playerAngle -= 0.1;
-            if (playerAngle < 0) {
-                playerAngle += 2 * PI;
-            }
-            playerDeltaX = (float) (Math.cos(playerAngle) * 5);
-            playerDeltaY = (float) (Math.sin(playerAngle) * 5);
-        }
-        if (keysPressed['D']) { // 'D' key for moving right
-            playerAngle += 0.1;
-            playerAngle %= 2 * PI; // Ensure playerAngle stays within [0, 2*PI)
-            playerDeltaX = (float) (Math.cos(playerAngle) * 5);
-            playerDeltaY = (float) (Math.sin(playerAngle) * 5);
-        }
-        if (keysPressed['W']) { // 'W' key for moving up
-            playerX += playerDeltaX;
-            playerY += playerDeltaY;
-        }
-        if (keysPressed['S']) { // 'S' key for moving down
-            playerX -= playerDeltaX;
-            playerY -= playerDeltaY;
-        }
-        repaint(); // Repaint the panel to reflect the updated player position
+    private void init() {
+        px = 150;
+        py = 400;
+        pa = 90;
+        pdx = (float) Math.cos(Math.toRadians(pa));
+        pdy = (float) -Math.sin(Math.toRadians(pa));
+
+        new Thread(this::playerMovement).start();
     }
 
-
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g;
-
-        // Draw the map
+    private void drawMap2D(Graphics2D g2d) {
+        int xo, yo;
         for (int y = 0; y < mapY; y++) {
             for (int x = 0; x < mapX; x++) {
-                int wall = map[y * mapX + x];
-                if (wall == 1) {
-                    // Draw white cube (black outline)
-                    g.setColor(Color.WHITE);
-                    g.fillRect((int) (x * mapS), (int) (y * mapS), (int) mapS, (int) mapS);
-                    g.setColor(Color.BLACK);
-                    g.drawRect((int) (x * mapS), (int) (y * mapS), (int) mapS, (int) mapS);
+                if (map[y * mapX + x] == 1) {
+                    g2d.setColor(Color.WHITE);
                 } else {
-                    // Draw black cube (white outline)
-                    g.setColor(Color.BLACK);
-                    g.fillRect((int) (x * mapS), (int) (y * mapS), (int) mapS, (int) mapS);
-                    g.setColor(Color.WHITE);
-                    g.drawRect((int) (x * mapS), (int) (y * mapS), (int) mapS, (int) mapS);
+                    g2d.setColor(Color.BLACK);
                 }
+                xo = x * mapS;
+                yo = y * mapS;
+                g2d.fillRect(xo + 1, yo + 1, mapS - 2, mapS - 2);
             }
         }
-
-        // Draw the player
-        g.setColor(Color.YELLOW);
-        g.fillRect((int) playerX, (int) playerY, (int) PLAYER_SIZE, (int) PLAYER_SIZE);
-
-        // Draw line indicating player's angle
-        int lineLength = 50; // Adjust line length as needed
-        int x2 = (int) (playerX + 0.5 * PLAYER_SIZE + lineLength * Math.cos(playerAngle));
-        int y2 = (int) (playerY + 0.5 * PLAYER_SIZE + lineLength * Math.sin(playerAngle));
-        g2d.setStroke(new BasicStroke(4)); // Adjust line thickness as needed
-        g.setColor(Color.YELLOW);
-        g.drawLine((int) (playerX + 0.5 * PLAYER_SIZE), (int) (playerY + 0.5 * PLAYER_SIZE), x2, y2);
-
-        // Draw rays
-        drawRays3D(g);
     }
 
-    public void drawRays3D(Graphics g) {
-        raysAngle = playerAngle;
-        float startX = playerX + 0.5f * PLAYER_SIZE; // Startposition X der Linie
-        float startY = playerY + 0.5f * PLAYER_SIZE; // Startposition Y der Linie
+    private void drawPlayer2D(Graphics2D g2d) {
+        g2d.setColor(Color.YELLOW);
+        g2d.setStroke(new BasicStroke(4));
+        g2d.drawOval((int) px - 4, (int) py - 4, 8, 8);
+        g2d.drawLine((int) px, (int) py, (int) (px + pdx * 20), (int) (py + pdy * 20));
+    }
 
-        for (rays = 0; rays < 1; rays++) {
+    //---------------------------Draw Rays and Walls--------------------------------
+    private float distance(float ax, float ay, float bx, float by, float ang) {
+        return (float) (Math.cos(Math.toRadians(ang)) * (bx - ax) - Math.sin(Math.toRadians(ang)) * (by - ay));
+    }
+
+    private void drawRays2D(Graphics2D g2d) {
+        int mx, my, mp, dof, side;
+        float vx, vy, rx, ry, ra, xo = 0, yo = 0, disV, disH;
+
+        ra = FixAng((int) (pa + 30));  // ray set back 30 degrees
+
+        for (int r = 0; r < 60; r++) {
+            // Vertical
             dof = 0;
-            float aTan = (float) (-1 / Math.tan(raysAngle));
-            if (raysAngle > PI) {
-                raysY = (float) ((((int) playerY >> 6) << 6) - 0.0001);
-                raysX = (playerY - raysY) * aTan + playerX;
-                yOffset = -64;
-                xOffset = -yOffset * aTan;
-            }
-            if (raysAngle < PI) {
-                raysY = (float) ((((int) playerY >> 6) << 6) + 64);
-                raysX = (playerY - raysY) * aTan + playerX;
-                yOffset = 64;
-                xOffset = -yOffset * aTan;
-            }
-            if (raysAngle == 0 || raysAngle == PI) {
-                raysX = playerX;
-                raysY = playerY;
+            side = 0;
+            disV = 100000;
+            float Tan = (float) Math.tan(Math.toRadians(ra));
+            if (Math.cos(Math.toRadians(ra)) > 0.001) {
+                rx = (((int) px >> 6) << 6) + 64;
+                ry = (px - rx) * Tan + py;
+                xo = 64;
+                yo = -xo * Tan;
+            } else if (Math.cos(Math.toRadians(ra)) < -0.001) {
+                rx = (((int) px >> 6) << 6) - 0.0001f;
+                ry = (px - rx) * Tan + py;
+                xo = -64;
+                yo = -xo * Tan;
+            } else {
+                rx = px;
+                ry = py;
                 dof = 8;
             }
+
             while (dof < 8) {
-                // Check if raysX and raysY are within bounds
-                if (raysX >= 0 && raysX < WINDOW_WIDTH && raysY >= 0 && raysY < WINDOW_HEIGHT) {
-                    mx = (int) (raysX) >> 6;
-                    my = (int) (raysY) >> 6;
-                    mp = my * mapX + mx;
-                    if (mp < mapX * mapY && map[mp] == 1) {
-                        dof = 8;
-                    } // hits wall
-                    else {
-                        raysX += xOffset;
-                        raysY += yOffset;
-                        dof += 1;
-                    }
-                } else {
-                    // Rays are out of bounds, stop the loop
+                mx = (int) (rx) >> 6;
+                my = (int) (ry) >> 6;
+                mp = my * mapX + mx;
+                if (mp > 0 && mp < mapX * mapY && map[mp] == 1) {
                     dof = 8;
+                    disV = (float) (Math.cos(Math.toRadians(ra)) * (rx - px) - Math.sin(Math.toRadians(ra)) * (ry - py));
+                } else {
+                    rx += xo;
+                    ry += yo;
+                    dof += 1;
                 }
             }
-        }
+            vx = rx;
+            vy = ry;
 
-        // Draw the green line from the middle of the player
-        g.setColor(Color.GREEN);
-        g.drawLine((int) startX, (int) startY, (int) raysX, (int) raysY);
+            // Horizontal
+            dof = 0;
+            disH = 100000;
+            Tan = 1.0f / Tan;
+            if (Math.sin(Math.toRadians(ra)) > 0.001) {
+                ry = (((int) py >> 6) << 6) - 0.0001f;
+                rx = (py - ry) * Tan + px;
+                yo = -64;
+                xo = -yo * Tan;
+            } else if (Math.sin(Math.toRadians(ra)) < -0.001) {
+                ry = (((int) py >> 6) << 6) + 64;
+                rx = (py - ry) * Tan + px;
+                yo = 64;
+                xo = -yo * Tan;
+            } else {
+                rx = px;
+                ry = py;
+                dof = 8;
+            }
+
+            while (dof < 8) {
+                mx = (int) (rx) >> 6;
+                my = (int) (ry) >> 6;
+                mp = my * mapX + mx;
+                if (mp > 0 && mp < mapX * mapY && map[mp] == 1) {
+                    dof = 8;
+                    disH = (float) (Math.cos(Math.toRadians(ra)) * (rx - px) - Math.sin(Math.toRadians(ra)) * (ry - py));
+                } else {
+                    rx += xo;
+                    ry += yo;
+                    dof += 1;
+                }
+            }
+
+            g2d.setColor(Color.GREEN);
+            if (disV < disH) {
+                rx = vx;
+                ry = vy;
+                disH = disV;
+
+            }
+            g2d.setStroke(new BasicStroke(2));
+            g2d.drawLine((int) px, (int) py, (int) rx, (int) ry);
+
+            int ca = FixAng((int) (pa - ra));
+            disH = disH * (float) Math.cos(Math.toRadians(ca));
+            int lineH = (mapS * 320) / ((int) disH);
+            if (lineH > 320) {
+                lineH = 320;
+            }
+            int lineOff = 160 - (lineH >> 1);
+
+            g2d.setStroke(new BasicStroke(8));
+            g2d.drawLine(r * 8 + 530, lineOff, r * 8 + 530, lineOff + lineH);
+
+            ra = FixAng((int) (ra - 1));
+        }
     }
 
+    private int FixAng(int a) {
+        if (a > 359) {
+            a -= 360;
+        }
+        if (a < 0) {
+            a += 360;
+        }
+        return a;
+    }
 
+    private float degToRad(int a) {
+        return (float) (a * Math.PI / 180.0);
+    }
 
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        repaint();
+    public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2d = (Graphics2D) g;
+        drawMap2D(g2d);
+        drawPlayer2D(g2d);
+        drawRays2D(g2d);
     }
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("Raycaster Engine");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.getContentPane().add(new RaycasterEngine());
+        JFrame frame = new JFrame("RaycasterEngine");
+        RaycasterEngine engine = new RaycasterEngine();
+        frame.add(engine);
         frame.pack();
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+
+    }
+
+    private void playerMovement() {
+        while (true) {
+            // Spielerbewegung
+            if (moveForward) {
+                float newPx = px + pdx * 5;
+                float newPy = py + pdy * 5;
+                if (checkCollision(newPx, newPy)) {
+                    px = newPx;
+                    py = newPy;
+                }
+            }
+            if (moveBackward) {
+                float newPx = px - pdx * 5;
+                float newPy = py - pdy * 5;
+                if (checkCollision(newPx, newPy)) {
+                    px = newPx;
+                    py = newPy;
+                }
+            }
+
+            // Spielerrotation
+            if (rotateLeft) {
+                pa += 5;
+                pa = FixAng((int) pa);
+                pdx = (float) Math.cos(Math.toRadians(pa));
+                pdy = (float) -Math.sin(Math.toRadians(pa));
+            }
+            if (rotateRight) {
+                pa -= 5;
+                pa = FixAng((int) pa);
+                pdx = (float) Math.cos(Math.toRadians(pa));
+                pdy = (float) -Math.sin(Math.toRadians(pa));
+            }
+
+            repaint();
+
+            try {
+                Thread.sleep(50); // Wartezeit zwischen den Aktualisierungen
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private boolean moveForward = false;
+    private boolean moveBackward = false;
+    private boolean rotateLeft = false;
+    private boolean rotateRight = false;
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        switch (e.getKeyCode()) {
+            case KeyEvent.VK_W:
+                moveForward = true;
+                break;
+            case KeyEvent.VK_S:
+                moveBackward = true;
+                break;
+            case KeyEvent.VK_A:
+                rotateLeft = true;
+                break;
+            case KeyEvent.VK_D:
+                rotateRight = true;
+                break;
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        switch (e.getKeyCode()) {
+            case KeyEvent.VK_W:
+                moveForward = false;
+                break;
+            case KeyEvent.VK_S:
+                moveBackward = false;
+                break;
+            case KeyEvent.VK_A:
+                rotateLeft = false;
+                break;
+            case KeyEvent.VK_D:
+                rotateRight = false;
+                break;
+        }
+    }
+
+    private boolean checkCollision(float x, float y) {
+        int mapXIndex = (int) (x / mapS);
+        int mapYIndex = (int) (y / mapS);
+        return map[mapYIndex * mapX + mapXIndex] == 0;
+    }
+
+
+
 }
