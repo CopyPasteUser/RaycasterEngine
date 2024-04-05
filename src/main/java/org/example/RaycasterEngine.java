@@ -13,11 +13,11 @@ public class RaycasterEngine extends JPanel implements KeyListener {
     private final int[] map =      // the map array. Edit to change level but keep the outer walls
             {
                     1, 1, 1, 1, 1, 1, 1, 1,
-                    1, 0, 1, 0, 0, 0, 0, 1,
-                    1, 0, 1, 0, 0, 0, 0, 1,
-                    1, 0, 1, 0, 0, 0, 0, 1,
+                    1, 0, 1, 0, 1, 0, 0, 1,
+                    1, 0, 1, 0, 1, 0, 0, 1,
+                    1, 0, 0, 0, 1, 0, 0, 1,
                     1, 0, 0, 0, 0, 0, 0, 1,
-                    1, 0, 0, 0, 0, 1, 0, 1,
+                    1, 0, 0, 0, 0, 0, 0, 1,
                     1, 0, 0, 0, 0, 0, 0, 1,
                     1, 1, 1, 1, 1, 1, 1, 1,
             };
@@ -148,13 +148,21 @@ public class RaycasterEngine extends JPanel implements KeyListener {
                 }
             }
 
-            g2d.setColor(Color.GREEN);
+            // Adjust color based on direction of the ray
+            // Adjust color based on direction of the ray
+            Color wallColor = new Color(255, 0, 0); // Default color set to red (RGB: 255, 0, 0)
             if (disV < disH) {
                 rx = vx;
                 ry = vy;
                 disH = disV;
 
+                // Adjust brightness of the color for horizontal walls (make it darker)
+                float[] hsb = Color.RGBtoHSB(wallColor.getRed(), wallColor.getGreen(), wallColor.getBlue(), null);
+                wallColor = Color.getHSBColor(hsb[0], hsb[1], hsb[2] * 0.8f); // Reduce brightness by 30%
             }
+
+
+            g2d.setColor(wallColor);
             g2d.setStroke(new BasicStroke(2));
             g2d.drawLine((int) px, (int) py, (int) rx, (int) ry);
 
@@ -173,6 +181,8 @@ public class RaycasterEngine extends JPanel implements KeyListener {
         }
     }
 
+
+
     private int FixAng(int a) {
         if (a > 359) {
             a -= 360;
@@ -190,10 +200,19 @@ public class RaycasterEngine extends JPanel implements KeyListener {
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
+
+        // Set background color to grey
+        setBackground(Color.GRAY);
+
+        // Apply simple lighting effect
+        float lightIntensity = 0.5f; // Adjust the light intensity as needed
+        g2d.setColor(new Color(lightIntensity, lightIntensity, lightIntensity));
+
         drawMap2D(g2d);
         drawPlayer2D(g2d);
         drawRays2D(g2d);
     }
+
 
     public static void main(String[] args) {
         JFrame frame = new JFrame("RaycasterEngine");
@@ -214,16 +233,16 @@ public class RaycasterEngine extends JPanel implements KeyListener {
         while (true) {
             // Spielerbewegung
             if (moveForward) {
-                float newPx = px + pdx * 5;
-                float newPy = py + pdy * 5;
+                float newPx = px + pdx * 10;
+                float newPy = py + pdy * 10;
                 if (checkCollision(newPx, newPy)) {
                     px = newPx;
                     py = newPy;
                 }
             }
             if (moveBackward) {
-                float newPx = px - pdx * 5;
-                float newPy = py - pdy * 5;
+                float newPx = px - pdx * 10;
+                float newPy = py - pdy * 10;
                 if (checkCollision(newPx, newPy)) {
                     px = newPx;
                     py = newPy;
@@ -232,13 +251,13 @@ public class RaycasterEngine extends JPanel implements KeyListener {
 
             // Spielerrotation
             if (rotateLeft) {
-                pa += 5;
+                pa += 10;
                 pa = FixAng((int) pa);
                 pdx = (float) Math.cos(Math.toRadians(pa));
                 pdy = (float) -Math.sin(Math.toRadians(pa));
             }
             if (rotateRight) {
-                pa -= 5;
+                pa -= 10;
                 pa = FixAng((int) pa);
                 pdx = (float) Math.cos(Math.toRadians(pa));
                 pdy = (float) -Math.sin(Math.toRadians(pa));
