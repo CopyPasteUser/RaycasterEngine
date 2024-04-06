@@ -63,14 +63,35 @@ public class RaycasterEngine extends JPanel implements KeyListener {
         g2d.setStroke(new BasicStroke(4));
         g2d.drawOval((int) px - 4, (int) py - 4, 8, 8);
         g2d.drawLine((int) px, (int) py, (int) (px + pdx * 20), (int) (py + pdy * 20));
+
+        // Draw player direction
+        g2d.setColor(Color.GREEN);
+        int coneWidth = 90; // Width of the cone in degrees
+        int coneHalfWidth = coneWidth / 2;
+        int coneLength = 50; // Length of the cone
+        int[] xPoints = new int[3];
+        int[] yPoints = new int[3];
+
+        // Calculate the points of the cone
+        xPoints[0] = (int) px;
+        yPoints[0] = (int) py;
+        xPoints[1] = (int) (px + Math.cos(Math.toRadians(pa - coneHalfWidth)) * coneLength);
+        yPoints[1] = (int) (py - Math.sin(Math.toRadians(pa - coneHalfWidth)) * coneLength);
+        xPoints[2] = (int) (px + Math.cos(Math.toRadians(pa + coneHalfWidth)) * coneLength);
+        yPoints[2] = (int) (py - Math.sin(Math.toRadians(pa + coneHalfWidth)) * coneLength);
+
+        g2d.fillPolygon(xPoints, yPoints, 3);
     }
+
+
+
 
     //---------------------------Draw Rays and Walls--------------------------------
     private float distance(float ax, float ay, float bx, float by, float ang) {
         return (float) (Math.cos(Math.toRadians(ang)) * (bx - ax) - Math.sin(Math.toRadians(ang)) * (by - ay));
     }
 
-    private void drawRays2D(Graphics2D g2d) {
+    private void drawMap3D(Graphics2D g2d) {
         int mx, my, mp, dof, side;
         float vx, vy, rx, ry, ra, xo = 0, yo = 0, disV, disH;
 
@@ -149,7 +170,6 @@ public class RaycasterEngine extends JPanel implements KeyListener {
             }
 
             // Adjust color based on direction of the ray
-            // Adjust color based on direction of the ray
             Color wallColor = new Color(255, 0, 0); // Default color set to red (RGB: 255, 0, 0)
             if (disV < disH) {
                 rx = vx;
@@ -161,10 +181,10 @@ public class RaycasterEngine extends JPanel implements KeyListener {
                 wallColor = Color.getHSBColor(hsb[0], hsb[1], hsb[2] * 0.8f); // Reduce brightness by 30%
             }
 
-
             g2d.setColor(wallColor);
-            g2d.setStroke(new BasicStroke(2));
-            g2d.drawLine((int) px, (int) py, (int) rx, (int) ry);
+
+            // Draw a single pixel at the intersection point
+            g2d.fillRect((int) rx, (int) ry, 1, 1);
 
             int ca = FixAng((int) (pa - ra));
             disH = disH * (float) Math.cos(Math.toRadians(ca));
@@ -180,6 +200,7 @@ public class RaycasterEngine extends JPanel implements KeyListener {
             ra = FixAng((int) (ra - 1));
         }
     }
+
 
 
 
@@ -210,7 +231,7 @@ public class RaycasterEngine extends JPanel implements KeyListener {
 
         drawMap2D(g2d);
         drawPlayer2D(g2d);
-        drawRays2D(g2d);
+        drawMap3D(g2d);
     }
 
 
