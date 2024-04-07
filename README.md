@@ -8,8 +8,8 @@ This project is my exploration into game development using Java. I am delving in
 
 ## Screenshots
 
-![Screenshot 1](screenshots/screenshot1.png)
-![Screenshot 2](screenshots/screenshot2.png)
+![Screenshot 1](Screenshots/screenshot1.png)
+![Screenshot 2](Screenshots/screenshot2.png)
 
 ## Getting Started
 
