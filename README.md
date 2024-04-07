@@ -6,6 +6,11 @@
 
 This project is my exploration into game development using Java. I am delving into raycasting techniques to create 3D-like environments within a 2D space.
 
+## Screenshots
+
+![Screenshot 1](screenshots/screenshot1.png)
+![Screenshot 2](screenshots/screenshot2.png)
+
 ## Getting Started
 
 1. Clone the repository.
